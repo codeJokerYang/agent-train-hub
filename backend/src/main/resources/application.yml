@@ -1,0 +1,77 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: agent-train-hub
+
+  # ---------- MySQL ----------
+  datasource:
+    url: ${MYSQL_URL:jdbc:mysql://localhost:3306/agent_train_hub?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=utf8}
+    username: ${MYSQL_USER:ath}
+    password: ${MYSQL_PASSWORD:ath123456}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+
+  # ---------- Redis ----------
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: 0
+      timeout: 3000ms
+
+  # ---------- 文件上传：默认 500MB ----------
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 500MB
+      max-request-size: 500MB
+
+  # ---------- Jackson：时间统一 ISO-8601 ----------
+  jackson:
+    time-zone: Asia/Shanghai
+    serialization:
+      write-dates-as-timestamps: false
+
+# ---------- MyBatis-Plus ----------
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  type-aliases-package: com.agenttrainhub.**.entity
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    banner: false
+    db-config:
+      id-type: auto
+
+# ---------- 项目自定义配置 ----------
+agenttrainhub:
+  jwt:
+    # 生产环境务必通过环境变量 JWT_SECRET 覆盖；HS256 要求至少 32 字节
+    secret: ${JWT_SECRET:agent-train-hub-default-dev-secret-please-change-0123456789}
+    expire-minutes: ${JWT_EXPIRE_MINUTES:120}
+    header: Authorization
+    token-prefix: "Bearer "
+  agent:
+    # Agent 运行模式：mock（默认，无需 API Key）| spring-ai（配置模型 API Key 后启用）
+    mode: ${AGENT_MODE:mock}
+    # spring-ai 模式所需的模型 API Key（第二/三阶段接入）
+    api-key: ${AGENT_API_KEY:}
+  storage:
+    # 本地文件存储根目录，后续可切换 MinIO
+    base-path: ${STORAGE_BASE_PATH:./data}
+    dataset-dir: datasets
+    artifact-dir: artifacts
+  training:
+    # 模拟训练每个 epoch 的间隔（毫秒），默认 1 秒
+    epoch-interval-ms: ${TRAINING_EPOCH_INTERVAL_MS:1000}
+
+logging:
+  level:
+    root: info
+    com.agenttrainhub: debug

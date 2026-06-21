@@ -1,0 +1,11 @@
+# AgentTrainHub Python Worker 依赖
+#
+# 第一阶段的 mock 脚本（dataset_profile.py / train_simulator.py）仅使用标准库，
+# 无需安装任何第三方包即可运行：
+#     python dataset_profile.py --input <file> --output <json>
+#     python train_simulator.py --job-id 1 --config <json> --event-file <jsonl> --interval 1
+#
+# 以下为后续阶段做真实数据集分析 / 训练时常用的库，按需启用：
+numpy>=1.26
+pandas>=2.1
+pillow>=10.0

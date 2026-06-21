@@ -1,0 +1,23 @@
+# --- build outputs ---
+backend/target/
+frontend/dist/
+frontend/dist-ssr/
+
+# --- dependencies ---
+frontend/node_modules/
+node_modules/
+
+# --- runtime data (uploads, profiles, job events, artifacts) ---
+data/
+backend/data/
+
+# --- IDE / OS ---
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# --- logs / tmp ---
+*.log
+*.local
