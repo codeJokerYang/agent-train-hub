@@ -35,9 +35,9 @@ public class LocalStorageService implements StorageService {
     @Override
     public StoredFile store(MultipartFile file, String relativeDir, String fileName) {
         try {
-            Path dir = basePath.resolve(relativeDir).normalize();
+            Path dir = resolveContained(relativeDir);
             Files.createDirectories(dir);
-            Path target = dir.resolve(fileName).normalize();
+            Path target = resolveContained(relativeDir, fileName);
 
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             try (InputStream in = file.getInputStream();
@@ -56,9 +56,9 @@ public class LocalStorageService implements StorageService {
     @Override
     public StoredFile writeBytes(byte[] content, String relativeDir, String fileName) {
         try {
-            Path dir = basePath.resolve(relativeDir).normalize();
+            Path dir = resolveContained(relativeDir);
             Files.createDirectories(dir);
-            Path target = dir.resolve(fileName).normalize();
+            Path target = resolveContained(relativeDir, fileName);
             Files.write(target, content);
 
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
@@ -95,6 +95,38 @@ public class LocalStorageService implements StorageService {
 
     @Override
     public Path resolve(String storagePath) {
-        return basePath.resolve(storagePath).normalize();
+        return resolveContained(storagePath);
+    }
+
+    private Path resolveContained(String relativePath) {
+        if (relativePath == null || relativePath.isBlank()) {
+            throw BizException.paramError("存储路径不能为空");
+        }
+        Path supplied = Paths.get(relativePath);
+        if (supplied.isAbsolute()) {
+            throw BizException.paramError("存储路径必须是相对路径");
+        }
+        Path resolved = basePath.resolve(supplied).normalize();
+        if (!resolved.startsWith(basePath)) {
+            throw BizException.paramError("存储路径越界");
+        }
+        return resolved;
+    }
+
+    private Path resolveContained(String relativeDir, String fileName) {
+        if (fileName == null || fileName.isBlank()) {
+            throw BizException.paramError("文件名不能为空");
+        }
+        Path suppliedName = Paths.get(fileName);
+        if (suppliedName.isAbsolute() || suppliedName.getNameCount() != 1
+                || ".".equals(fileName) || "..".equals(fileName)) {
+            throw BizException.paramError("文件名不能包含路径");
+        }
+        Path dir = resolveContained(relativeDir);
+        Path resolved = dir.resolve(suppliedName).normalize();
+        if (!resolved.startsWith(dir) || !resolved.startsWith(basePath)) {
+            throw BizException.paramError("文件路径越界");
+        }
+        return resolved;
     }
 }

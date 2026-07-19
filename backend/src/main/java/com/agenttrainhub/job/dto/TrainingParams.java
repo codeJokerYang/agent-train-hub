@@ -1,6 +1,7 @@
 package com.agenttrainhub.job.dto;
 
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.Min;
 import lombok.Data;
 
@@ -19,5 +20,7 @@ public class TrainingParams {
     @DecimalMin(value = "0.0", inclusive = false, message = "learningRate 必须大于 0")
     private Double learningRate;
 
+    @DecimalMin(value = "0.0", message = "validationRatio 不得小于 0")
+    @DecimalMax(value = "1.0", inclusive = false, message = "validationRatio 必须小于 1")
     private Double validationRatio;
 }

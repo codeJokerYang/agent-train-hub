@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
-import * as echarts from 'echarts'
+import { LineChart } from 'echarts/charts'
+import { GridComponent, TitleComponent, TooltipComponent } from 'echarts/components'
+import { init, use, type ECharts } from 'echarts/core'
+import { CanvasRenderer } from 'echarts/renderers'
+
+use([LineChart, GridComponent, TitleComponent, TooltipComponent, CanvasRenderer])
 
 const stats = ref([
   { label: '任务总数', value: 0 },
@@ -10,11 +15,11 @@ const stats = ref([
 ])
 
 const chartRef = ref<HTMLDivElement>()
-let chart: echarts.ECharts | null = null
+let chart: ECharts | null = null
 
 function renderChart() {
   if (!chartRef.value) return
-  chart = echarts.init(chartRef.value)
+  chart = init(chartRef.value)
   chart.setOption({
     title: { text: '示例 loss 曲线（占位数据）', left: 'center', textStyle: { fontSize: 14 } },
     tooltip: { trigger: 'axis' },

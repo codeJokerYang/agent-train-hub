@@ -3,6 +3,7 @@ package com.agenttrainhub.job;
 import com.agenttrainhub.artifact.ArtifactService;
 import com.agenttrainhub.artifact.dto.ArtifactVO;
 import com.agenttrainhub.common.BizException;
+import com.agenttrainhub.common.ErrorCode;
 import com.agenttrainhub.common.PageQuery;
 import com.agenttrainhub.common.PageResult;
 import com.agenttrainhub.dataset.DatasetService;
@@ -177,19 +178,20 @@ public class TrainingJobService {
     public TrainingJobVO start(Long id) {
         TrainingJob job = jobAccessGuard.requireAccessible(id);
         assertStartable(job);
-        resetAndSubmit(job);
+        resetAndSubmit(job, () -> { });
         return detailInternal(id);
     }
 
     public TrainingJobVO rerun(Long id) {
         TrainingJob job = jobAccessGuard.requireAccessible(id);
         assertStartable(job);
-        // 清空历史指标 / 日志 / 产物，重新开始
-        metricService.deleteByJob(id);
-        logService.deleteByJob(id);
-        artifactService.deleteByJob(id);
-        logService.add(id, "INFO", "rerun: previous metrics/logs/artifacts cleared");
-        resetAndSubmit(job);
+        resetAndSubmit(job, () -> {
+            // 先原子占有 RUNNING 状态，再清空历史，避免并发重跑互相删除新数据。
+            metricService.deleteByJob(id);
+            logService.deleteByJob(id);
+            artifactService.deleteByJob(id);
+            logService.add(id, "INFO", "rerun: previous metrics/logs/artifacts cleared");
+        });
         return detailInternal(id);
     }
 
@@ -198,7 +200,16 @@ public class TrainingJobService {
         if (!JobStatus.canCancel(job.getStatus())) {
             throw BizException.conflict("当前任务状态为 " + job.getStatus() + "，只能停止运行中的任务");
         }
+        int updated = jobMapper.update(null, new LambdaUpdateWrapper<TrainingJob>()
+                .eq(TrainingJob::getId, id)
+                .eq(TrainingJob::getStatus, JobStatus.RUNNING.name())
+                .set(TrainingJob::getStatus, JobStatus.CANCELLED.name())
+                .set(TrainingJob::getFinishedAt, LocalDateTime.now()));
+        if (updated != 1) {
+            throw BizException.conflict("任务状态已发生变化，请刷新后重试");
+        }
         trainingExecutor.requestCancel(id);
+        logService.add(id, "WARN", "training cancellation requested");
         return detailInternal(id);
     }
 
@@ -210,11 +221,12 @@ public class TrainingJobService {
         }
     }
 
-    private void resetAndSubmit(TrainingJob job) {
+    private void resetAndSubmit(TrainingJob job, Runnable preparation) {
         int total = (job.getTotalEpoch() != null && job.getTotalEpoch() > 0)
                 ? job.getTotalEpoch() : DEFAULT_EPOCHS;
-        jobMapper.update(null, new LambdaUpdateWrapper<TrainingJob>()
+        int updated = jobMapper.update(null, new LambdaUpdateWrapper<TrainingJob>()
                 .eq(TrainingJob::getId, job.getId())
+                .eq(TrainingJob::getStatus, job.getStatus())
                 .set(TrainingJob::getStatus, JobStatus.RUNNING.name())
                 .set(TrainingJob::getStartedAt, LocalDateTime.now())
                 .set(TrainingJob::getFinishedAt, null)
@@ -222,7 +234,33 @@ public class TrainingJobService {
                 .set(TrainingJob::getCurrentEpoch, 0)
                 .set(TrainingJob::getErrorMessage, null)
                 .set(TrainingJob::getTotalEpoch, total));
-        trainingExecutor.submit(job.getId());
+        if (updated != 1) {
+            throw BizException.conflict("任务状态已发生变化，请刷新后重试");
+        }
+        try {
+            preparation.run();
+            trainingExecutor.submit(job.getId());
+        } catch (RuntimeException ex) {
+            markSubmissionFailed(job.getId(), ex);
+            if (ex instanceof BizException bizException) {
+                throw bizException;
+            }
+            throw new BizException(ErrorCode.INTERNAL_ERROR, "训练任务提交失败，请稍后重试");
+        }
+    }
+
+    private void markSubmissionFailed(Long jobId, RuntimeException ex) {
+        jobMapper.update(null, new LambdaUpdateWrapper<TrainingJob>()
+                .eq(TrainingJob::getId, jobId)
+                .eq(TrainingJob::getStatus, JobStatus.RUNNING.name())
+                .set(TrainingJob::getStatus, JobStatus.FAILED.name())
+                .set(TrainingJob::getFinishedAt, LocalDateTime.now())
+                .set(TrainingJob::getErrorMessage, "任务提交失败: " + truncate(ex.getMessage())));
+    }
+
+    private static String truncate(String message) {
+        String safe = message == null ? "unknown error" : message;
+        return safe.length() > 900 ? safe.substring(0, 900) : safe;
     }
 
     private TrainingJobVO detailInternal(Long id) {

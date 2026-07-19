@@ -36,7 +36,7 @@
 | POST | `/api/datasets/{id}/analyze` | 重新分析（内置分析器） |
 | DELETE | `/api/datasets/{id}` | 删除 |
 
-## 规划接口（后续阶段）
+## 业务接口状态
 
 ### Model Template
 | 方法 | 路径 | 说明 |
@@ -45,10 +45,10 @@
 | POST | `/api/model-templates` | 新增（ADMIN） |
 | PUT | `/api/model-templates/{id}` | 更新（ADMIN） |
 
-### Training Job
+### Training Job（除 SSE 外已实现）
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| POST | `/api/training-jobs` | 创建任务 |
+| POST | `/api/training-jobs` | 创建任务；名称最多 128 字符，`validationRatio` 范围为 `[0, 1)` |
 | GET | `/api/training-jobs` | 分页列表 |
 | GET | `/api/training-jobs/{id}` | 详情 |
 | POST | `/api/training-jobs/{id}/start` | 启动 |
@@ -57,6 +57,9 @@
 | GET | `/api/training-jobs/{id}/metrics` | 指标曲线 |
 | GET | `/api/training-jobs/{id}/logs` | 日志分页 |
 | GET | `/api/training-jobs/{id}/events` | SSE 实时事件 |
+
+启动、停止和重跑使用原子状态迁移；并发操作中只有一个请求能够成功，其余请求返回 HTTP 409，
+避免重复执行器与终态互相覆盖。
 
 ### Artifact
 | 方法 | 路径 | 说明 |

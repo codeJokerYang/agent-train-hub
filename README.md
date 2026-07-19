@@ -79,7 +79,8 @@ cd backend
 后端默认端口 `8080`。健康检查：`GET http://localhost:8080/api/ping`。
 
 > 关键配置可用环境变量覆盖：`MYSQL_URL` / `MYSQL_USER` / `MYSQL_PASSWORD` /
-> `REDIS_HOST` / `REDIS_PORT` / `JWT_SECRET` / `AGENT_MODE`。
+> `REDIS_HOST` / `REDIS_PORT` / `JWT_SECRET` / `CORS_ALLOWED_ORIGINS` / `AGENT_MODE`。
+> `CORS_ALLOWED_ORIGINS` 使用逗号分隔的完整 origin；默认只允许 `http://localhost:5173`。
 
 ### 3. 启动前端
 

@@ -3,6 +3,7 @@ package com.agenttrainhub.job;
 import com.agenttrainhub.artifact.ArtifactService;
 import com.agenttrainhub.job.entity.TrainingJob;
 import com.agenttrainhub.job.mapper.TrainingJobMapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -64,7 +65,7 @@ public class TrainingExecutor {
     private void run(Long jobId) {
         try {
             TrainingJob job = jobMapper.selectById(jobId);
-            if (job == null) {
+            if (job == null || !JobStatus.RUNNING.name().equals(job.getStatus())) {
                 return;
             }
             int totalEpoch = (job.getTotalEpoch() != null && job.getTotalEpoch() > 0)
@@ -98,23 +99,27 @@ public class TrainingExecutor {
                 finalLoss = loss;
                 finalAccuracy = accuracy;
 
+                if (!updateProgress(jobId, epoch, progress)) {
+                    return;
+                }
                 metricService.add(jobId, epoch, "loss", round(loss));
                 metricService.add(jobId, epoch, "accuracy", round(accuracy));
                 logService.add(jobId, "INFO",
                         String.format("epoch %d/%d - loss=%.4f acc=%.4f", epoch, totalEpoch, loss, accuracy));
-
-                job.setStatus(JobStatus.RUNNING.name());
-                job.setCurrentEpoch(epoch);
-                job.setProgress(progress);
-                jobMapper.updateById(job);
             }
 
             artifactService.generateForSuccess(job, finalLoss, finalAccuracy);
-            job.setStatus(JobStatus.SUCCESS.name());
-            job.setProgress(100);
-            job.setCurrentEpoch(totalEpoch);
-            job.setFinishedAt(LocalDateTime.now());
-            jobMapper.updateById(job);
+            int completed = jobMapper.update(null, new LambdaUpdateWrapper<TrainingJob>()
+                    .eq(TrainingJob::getId, jobId)
+                    .eq(TrainingJob::getStatus, JobStatus.RUNNING.name())
+                    .set(TrainingJob::getStatus, JobStatus.SUCCESS.name())
+                    .set(TrainingJob::getProgress, 100)
+                    .set(TrainingJob::getCurrentEpoch, totalEpoch)
+                    .set(TrainingJob::getFinishedAt, LocalDateTime.now()));
+            if (completed != 1) {
+                artifactService.deleteByJob(jobId);
+                return;
+            }
             logService.add(jobId, "INFO", "training finished: SUCCESS");
         } catch (Exception ex) {
             log.error("training job {} failed", jobId, ex);
@@ -129,21 +134,34 @@ public class TrainingExecutor {
     }
 
     private void markCancelled(TrainingJob job, int epoch) {
-        job.setStatus(JobStatus.CANCELLED.name());
-        job.setFinishedAt(LocalDateTime.now());
-        jobMapper.updateById(job);
-        logService.add(job.getId(), "WARN", "training cancelled at epoch " + epoch);
+        int updated = jobMapper.update(null, new LambdaUpdateWrapper<TrainingJob>()
+                .eq(TrainingJob::getId, job.getId())
+                .eq(TrainingJob::getStatus, JobStatus.RUNNING.name())
+                .set(TrainingJob::getStatus, JobStatus.CANCELLED.name())
+                .set(TrainingJob::getFinishedAt, LocalDateTime.now()));
+        if (updated == 1) {
+            logService.add(job.getId(), "WARN", "training cancelled at epoch " + epoch);
+        }
     }
 
     private void failJob(Long jobId, Exception ex) {
-        TrainingJob job = jobMapper.selectById(jobId);
-        if (job != null) {
-            job.setStatus(JobStatus.FAILED.name());
-            job.setFinishedAt(LocalDateTime.now());
-            job.setErrorMessage(truncate(ex.getMessage()));
-            jobMapper.updateById(job);
+        int updated = jobMapper.update(null, new LambdaUpdateWrapper<TrainingJob>()
+                .eq(TrainingJob::getId, jobId)
+                .eq(TrainingJob::getStatus, JobStatus.RUNNING.name())
+                .set(TrainingJob::getStatus, JobStatus.FAILED.name())
+                .set(TrainingJob::getFinishedAt, LocalDateTime.now())
+                .set(TrainingJob::getErrorMessage, truncate(ex.getMessage())));
+        if (updated == 1) {
+            logService.add(jobId, "ERROR", "training failed: " + ex.getMessage());
         }
-        logService.add(jobId, "ERROR", "training failed: " + ex.getMessage());
+    }
+
+    private boolean updateProgress(Long jobId, int epoch, int progress) {
+        return jobMapper.update(null, new LambdaUpdateWrapper<TrainingJob>()
+                .eq(TrainingJob::getId, jobId)
+                .eq(TrainingJob::getStatus, JobStatus.RUNNING.name())
+                .set(TrainingJob::getCurrentEpoch, epoch)
+                .set(TrainingJob::getProgress, progress)) == 1;
     }
 
     private static double clamp(double value, double min, double max) {

@@ -1,19 +1,24 @@
 <script setup lang="ts">
 import { onBeforeUnmount, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import * as echarts from 'echarts'
+import { LineChart } from 'echarts/charts'
+import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components'
+import { init, use, type ECharts } from 'echarts/core'
+import { CanvasRenderer } from 'echarts/renderers'
 import StatusTag from '@/components/StatusTag.vue'
+
+use([LineChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer])
 
 const route = useRoute()
 const jobId = String(route.params.id ?? '')
 
 const activeTab = ref('info')
 const chartRef = ref<HTMLDivElement>()
-let chart: echarts.ECharts | null = null
+let chart: ECharts | null = null
 
 function renderChart() {
   if (!chartRef.value) return
-  chart = echarts.init(chartRef.value)
+  chart = init(chartRef.value)
   chart.setOption({
     tooltip: { trigger: 'axis' },
     legend: { data: ['loss', 'accuracy'] },

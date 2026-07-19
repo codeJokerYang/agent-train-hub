@@ -25,6 +25,8 @@ export interface PageData<T> {
   records: T[]
 }
 
+const FILE_TRANSFER_TIMEOUT_MS = 10 * 60 * 1000
+
 /** 数据集分页（GET /api/datasets）。 */
 export function listDatasets(params: PageQuery) {
   return request<PageData<DatasetItem>>({ url: '/datasets', method: 'get', params })
@@ -35,7 +37,12 @@ export function listDatasets(params: PageQuery) {
  * 不手动设置 Content-Type：浏览器会自动带上正确的 multipart boundary。
  */
 export function uploadDataset(formData: FormData) {
-  return request<DatasetItem>({ url: '/datasets', method: 'post', data: formData })
+  return request<DatasetItem>({
+    url: '/datasets',
+    method: 'post',
+    data: formData,
+    timeout: FILE_TRANSFER_TIMEOUT_MS
+  })
 }
 
 /** 重新分析（POST /api/datasets/{id}/analyze）。 */
@@ -50,5 +57,8 @@ export function deleteDataset(id: number) {
 
 /** 下载原始文件，返回带 Blob 的原始响应（不走 Result 解包）。 */
 export function downloadDataset(id: number) {
-  return service.get(`/datasets/${id}/download`, { responseType: 'blob' })
+  return service.get(`/datasets/${id}/download`, {
+    responseType: 'blob',
+    timeout: FILE_TRANSFER_TIMEOUT_MS
+  })
 }
