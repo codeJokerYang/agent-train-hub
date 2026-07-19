@@ -43,7 +43,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         try {
             String token = resolveToken(request);
-            if (token != null && tokenProvider.validate(token)) {
+            if (token != null) {
                 Claims claims = tokenProvider.parseClaims(token);
                 UserPrincipal principal = tokenProvider.toUserPrincipal(claims);
                 if (principal.role() != null) {

@@ -46,6 +46,8 @@ python train_simulator.py --job-id 1 --config config.json --event-file events.js
   `MYSQL_URL` / `REDIS_HOST` 指向已有实例。
 - **端口被占用**：后端 `SERVER_PORT`、前端 `vite.config.ts` 的 `server.port` 可改。
 - **JWT secret 太短**：HS256 要求密钥至少 32 字节，用 `JWT_SECRET` 覆盖默认值。
+- **生产前端跨域被拒绝**：用 `CORS_ALLOWED_ORIGINS` 配置完整的 HTTPS origin；多个值以逗号分隔，
+  例如 `https://train.example.edu,https://admin.example.edu`。不要填写 `*` 或带路径的 URL。
 - **没有 Docker**：自行安装 MySQL 8 / Redis 7，手动执行 `deploy/mysql/init.sql`。
 
 ## 分阶段实现

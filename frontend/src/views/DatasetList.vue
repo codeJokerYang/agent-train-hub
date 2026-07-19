@@ -17,6 +17,10 @@ const datasets = ref<DatasetItem[]>([])
 const total = ref(0)
 const query = reactive({ pageNum: 1, pageSize: 10, keyword: '' })
 
+function datasetRow(row: unknown): DatasetItem {
+  return row as DatasetItem
+}
+
 async function load() {
   loading.value = true
   try {
@@ -147,8 +151,8 @@ onMounted(load)
       </el-table-column>
       <el-table-column label="操作" width="150" fixed="right">
         <template #default="{ row }">
-          <el-button link type="primary" @click="handleDownload(row)">下载</el-button>
-          <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
+          <el-button link type="primary" @click="handleDownload(datasetRow(row))">下载</el-button>
+          <el-button link type="danger" @click="handleDelete(datasetRow(row))">删除</el-button>
         </template>
       </el-table-column>
     </el-table>

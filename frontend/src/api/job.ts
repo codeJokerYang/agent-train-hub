@@ -37,13 +37,13 @@ export function createJob(payload: CreateJobPayload) {
 
 /** 启动 / 停止 / 重跑。 */
 export function startJob(id: number | string) {
-  return request<void>({ url: `/training-jobs/${id}/start`, method: 'post' })
+  return request<TrainingJobItem>({ url: `/training-jobs/${id}/start`, method: 'post' })
 }
 
 export function cancelJob(id: number | string) {
-  return request<void>({ url: `/training-jobs/${id}/cancel`, method: 'post' })
+  return request<TrainingJobItem>({ url: `/training-jobs/${id}/cancel`, method: 'post' })
 }
 
 export function rerunJob(id: number | string) {
-  return request<void>({ url: `/training-jobs/${id}/rerun`, method: 'post' })
+  return request<TrainingJobItem>({ url: `/training-jobs/${id}/rerun`, method: 'post' })
 }
